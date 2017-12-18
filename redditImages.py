@@ -7,21 +7,22 @@ import argparse
 
 def download_images(url, location, local_filename=None):
 	if not local_filename:
-		local_filename = url.split('/')[-1] + '.' +  url.split('?')[0].split('.')[-1]
+		local_filename = url.split('/')[-1].split('?')[0]
 	if not os.path.isfile(os.path.join(location, local_filename)):
 		r = requests.get(url, stream=True)
 		with open(os.path.join(location, local_filename), 'wb') as f:
 			for chunk in r.iter_content(chunk_size=1024):
 				if chunk: # filter out keep-alive new chunks
 					f.write(chunk)
-	return os.path.join(location, local_filename)
+	return local_filename
 
-def get_images(post, kind, table, location):
+def get_images(post, kind, location):
 	post_name = post['title']
+	post_images_data = post['preview']['images'][0]
 	post_url = ''
 	try:
 		if kind == 't3':
-			post_url = post['preview']['images'][0]['source']['url']
+			post_url = post_images_data['source']['url'] if len(post_images_data['variants']) == 0 else post_images_data['variants']['gif']['source']['url']
 		elif kind == 't1':
 			post_url = post['link_url']
 		return {post_name: download_images(post_url, location)}
@@ -29,13 +30,13 @@ def get_images(post, kind, table, location):
 		print 'Post with title: \'%s\' does not have a picture' % post_name
 		return {post_name:'N/A'}
 
-def get_data(post, table, location):
+def get_data(post, location):
 	results = []
 	if post['kind'] == 'Listing':
 		for child in post['data']['children']:
-			results += get_data(child, table, location)
+			results += get_data(child, location)
 	elif post['kind'] in ['t1', 't3']:
-		results.append(get_images(post['data'], post['kind'], table, location))
+		results.append(get_images(post['data'], post['kind'], location))
 	else:
 		print 'This kind "%s" is not supported atm' % post['kind']
 	return results
@@ -75,9 +76,18 @@ if __name__== '__main__':
 		returned_json = get_pages(url, args.total_pages)
 
 		for item in returned_json:
-			results+=get_data(item, table, location)
+			results+=get_data(item, location)
 
 		for result in results:
 			table.add_row([subreddit, result.keys()[0], result[result.keys()[0]]])
 			table.add_row([subreddit, "", ""])
+
+		print 'Location: %s' % location
 		print table
+
+
+
+
+
+
+
