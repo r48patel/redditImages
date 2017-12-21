@@ -16,16 +16,40 @@ def download_images(url, location, local_filename=None):
 					f.write(chunk)
 	return local_filename
 
+def download_imgur_image(url, location, local_filename=None):
+	results = []
+	r = requests.get(url+'.json')
+	if r.status_code != 200:
+		print 'Can\'t download: ', url
+		return result
+	value = r.json()
+	album_info = value['data']['image']['album_images']
+	
+	for i in range(0, album_info['count']):
+		name = album_info['images'][i]['hash']
+		ext = album_info['images'][i]['ext']
+		url = 'https://i.imgur.com/{}{}'.format(name, ext)
+		results.append(download_images(url, location, local_filename))
+
+	return results
+
+
 def get_images(post, kind, location):
 	post_name = post['title']
-	post_images_data = post['preview']['images'][0]
 	post_url = ''
+
 	try:
-		if kind == 't3':
-			post_url = post_images_data['source']['url'] if len(post_images_data['variants']) == 0 else post_images_data['variants']['gif']['source']['url']
-		elif kind == 't1':
-			post_url = post['link_url']
-		return {post_name: download_images(post_url, location)}
+		if 'gallery' in post['url']:
+			result = download_imgur_image(post['url'], location)
+		else:
+			post_images_data = post['preview']['images'][0]
+			if kind == 't3':
+				post_url = post_images_data['source']['url'] if len(post_images_data['variants']) == 0 else post_images_data['variants']['gif']['source']['url']
+			elif kind == 't1':
+				post_url = post['link_url']
+			result = download_images(post_url, location)
+		
+		return {post_name: result}
 	except KeyError:
 		print 'Post with title: \'%s\' does not have a picture' % post_name
 		return {post_name:'N/A'}
